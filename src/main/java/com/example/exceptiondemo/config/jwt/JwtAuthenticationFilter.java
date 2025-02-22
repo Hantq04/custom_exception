@@ -3,6 +3,7 @@ package com.example.exceptiondemo.config.jwt;
 import com.example.exceptiondemo.config.security.CustomUserDetailsService;
 import com.example.exceptiondemo.exception.AppException;
 import com.example.exceptiondemo.exception.ErrorCode;
+import com.example.exceptiondemo.repository.TokenRepo;
 import com.example.exceptiondemo.util.ResponseObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -31,6 +32,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     JwtTokenProvider jwtTokenProvider;
     CustomUserDetailsService customUserDetailsService;
+    TokenRepo tokenRepo;
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
@@ -51,7 +53,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 jwtTokenProvider.validateToken(jwt);
                 String userName = jwtTokenProvider.getUserNameFromJwt(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(userName);
-                if (userDetails != null) {
+                var isTokenValid = tokenRepo.findByToken(jwt)
+                        .map(token -> !token.isExpired() && !token.isRevoked())
+                        .orElse(false);
+                if (userDetails != null && isTokenValid) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

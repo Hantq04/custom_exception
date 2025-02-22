@@ -4,12 +4,15 @@ import com.example.exceptiondemo.config.jwt.JwtTokenProvider;
 import com.example.exceptiondemo.config.security.CustomUserDetails;
 import com.example.exceptiondemo.dto.UserDTO;
 import com.example.exceptiondemo.enums.ERole;
+import com.example.exceptiondemo.enums.TokenType;
 import com.example.exceptiondemo.exception.AppException;
 import com.example.exceptiondemo.exception.ErrorCode;
 import com.example.exceptiondemo.mapper.UserMapper;
 import com.example.exceptiondemo.model.Role;
+import com.example.exceptiondemo.model.Token;
 import com.example.exceptiondemo.model.User;
 import com.example.exceptiondemo.dto.JwtResponse;
+import com.example.exceptiondemo.repository.TokenRepo;
 import com.example.exceptiondemo.service.roleService.RoleServiceImpl;
 import com.example.exceptiondemo.service.userService.UserServiceImpl;
 import lombok.AccessLevel;
@@ -38,6 +41,7 @@ public class AuthServiceImpl implements AuthService{
     RoleServiceImpl roleService;
     PasswordEncoder passwordEncoder;
     UserMapper userMapper;
+    TokenRepo tokenRepo;
 
     @Override
     public UserDTO registerUser(UserDTO request) {
@@ -73,8 +77,21 @@ public class AuthServiceImpl implements AuthService{
             });
         }
         user.setListRoles(listRoles);
-        User saveUser = userService.insertUser(user);
-        return userMapper.toUserDTO(saveUser);
+        User savedUser = userService.insertUser(user);
+
+        User persistedUser = userService.findByUserName(savedUser.getUserName());
+        if (persistedUser == null) {
+            throw new AppException(ErrorCode.NOT_FOUND);
+        }
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getUserName(), request.getPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
+        String jwt = jwtTokenProvider.generateToken(customUserDetails);
+        saveUserToken(userMapper.toUserDTO(persistedUser), jwt);
+
+        return userMapper.toUserDTO(savedUser);
     }
 
     @Override
@@ -85,8 +102,39 @@ public class AuthServiceImpl implements AuthService{
         SecurityContextHolder.getContext().setAuthentication(authentication);
         CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
         String jwt = jwtTokenProvider.generateToken(customUserDetails);
+        revokeAllUserToken(request);
+        saveUserToken(request, jwt);
         List<String> listRoles = customUserDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
         return new JwtResponse(jwt, customUserDetails.getUsername(), listRoles);
+    }
+
+    private void saveUserToken(UserDTO userDTO, String jwtToken) {
+        User user = userService.findByUserName(userDTO.getUserName());
+        if (user == null) {
+            throw new AppException(ErrorCode.NOT_FOUND);
+        }
+        var token = Token.builder()
+                .user(user)
+                .token(jwtToken)
+                .tokenType(TokenType.BEARER)
+                .revoked(false)
+                .expired(false)
+                .build();
+        tokenRepo.save(token);
+    }
+
+    private void revokeAllUserToken(UserDTO userDTO) {
+        User user = userService.findByUserName(userDTO.getUserName());
+        if (user == null) {
+            throw new AppException(ErrorCode.NOT_FOUND);
+        }
+        var validUserTokens = tokenRepo.findAllValidTokensByUser(user.getUserId());
+        if (validUserTokens.isEmpty()) return;
+        validUserTokens.forEach(token -> {
+            token.setExpired(true);
+            token.setRevoked(true);
+        });
+        tokenRepo.saveAll(validUserTokens);
     }
 }
