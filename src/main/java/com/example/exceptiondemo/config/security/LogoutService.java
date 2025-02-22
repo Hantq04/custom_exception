@@ -1,6 +1,5 @@
 package com.example.exceptiondemo.config.security;
 
-import com.example.exceptiondemo.controller.UserController;
 import com.example.exceptiondemo.repository.TokenRepo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,9 +29,13 @@ public class LogoutService implements LogoutHandler {
         var storedToken = tokenRepo.findByToken(jwt)
                 .orElse(null);
         if (storedToken != null) {
+            logger.info("Token found, updating status...");
             storedToken.setExpired(true);
             storedToken.setRevoked(true);
             tokenRepo.save(storedToken);
+            logger.info("Token status updated: Expired = " + storedToken.isExpired() + ", Revoked = " + storedToken.isRevoked());
+        } else {
+            logger.warning("Token not found in database!");
         }
     }
 }
