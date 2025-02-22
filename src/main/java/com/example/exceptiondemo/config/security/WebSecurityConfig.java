@@ -2,8 +2,6 @@ package com.example.exceptiondemo.config.security;
 
 import com.example.exceptiondemo.config.jwt.JwtAuthenticationEntryPoint;
 import com.example.exceptiondemo.config.jwt.JwtAuthenticationFilter;
-import com.example.exceptiondemo.exception.AppException;
-import com.example.exceptiondemo.exception.ErrorCode;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -45,21 +43,6 @@ public class WebSecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-//    @Bean
-//    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//        return http
-//                .cors(AbstractHttpConfigurer::disable)
-//                .csrf(AbstractHttpConfigurer::disable)
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                .authorizeHttpRequests(auth -> auth
-//                        .requestMatchers("/api/v1/auth/**").permitAll()
-//                        .requestMatchers("/api/v1/test/**").permitAll()
-//                        .anyRequest().authenticated()
-//                )
-//                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-//                .build();
-//    }
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -72,11 +55,6 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/v1/test/**").permitAll()
                         .anyRequest().authenticated()
                 )
-//                .exceptionHandling(ex -> ex
-//                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-//                            throw new AppException(ErrorCode.UNAUTHORIZED);
-//                        })
-//                )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

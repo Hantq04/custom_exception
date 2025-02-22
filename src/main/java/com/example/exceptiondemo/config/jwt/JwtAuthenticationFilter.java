@@ -5,7 +5,6 @@ import com.example.exceptiondemo.exception.AppException;
 import com.example.exceptiondemo.exception.ErrorCode;
 import com.example.exceptiondemo.util.ResponseObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,38 +40,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
-//    @Override
-//    protected void doFilterInternal(HttpServletRequest request,
-//                                    HttpServletResponse response,
-//                                    FilterChain filterChain)
-//            throws ServletException, IOException {
-//        try {
-//            String jwt = getJwtFromRequest(request);
-//            if (StringUtils.hasText(jwt)) {
-//                try {
-//                    jwtTokenProvider.validateToken(jwt);
-//                    String userName = jwtTokenProvider.getUserNameFromJwt(jwt);
-//                    UserDetails userDetails = customUserDetailsService.loadUserByUsername(userName);
-//                    if (userDetails != null) {
-//                        UsernamePasswordAuthenticationToken authentication =
-//                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-//                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-//                        SecurityContextHolder.getContext().setAuthentication(authentication);
-//                    }
-//                } catch (ExpiredJwtException ex) {
-//                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-//                    response.getWriter().write(new ObjectMapper().writeValueAsString(
-//                            new ResponseObject(ErrorCode.EXPIRED_JWT_TOKEN.getCode(), ErrorCode.EXPIRED_JWT_TOKEN.getMessage(), "")
-//                    ));
-//                    return;
-//                }
-//            }
-//        } catch (Exception e) {
-//            log.error("FAIL_ON_SET_USER_AUTHENTICATION: {}", e.getMessage());
-//        }
-//        filterChain.doFilter(request, response);
-//    }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -81,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
             if (StringUtils.hasText(jwt)) {
-                jwtTokenProvider.validateToken(jwt); // Nếu token sai, nó sẽ ném lỗi ngay
+                jwtTokenProvider.validateToken(jwt);
                 String userName = jwtTokenProvider.getUserNameFromJwt(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(userName);
                 if (userDetails != null) {

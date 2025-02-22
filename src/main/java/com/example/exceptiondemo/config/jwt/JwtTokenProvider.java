@@ -44,26 +44,6 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
-//    public boolean validateToken(String authToken) {
-//        SecretKey key = Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
-//        try {
-//            Jwts.parserBuilder()
-//                    .setSigningKey(key)
-//                    .build()
-//                    .parseClaimsJws(authToken);
-//            return true;
-//        } catch (MalformedJwtException e) {
-//            log.error("INVALID_JWT_TOKEN.");
-//        } catch (ExpiredJwtException e) {
-//            log.error("EXPIRED_JWT_TOKEN.");
-//        } catch (UnsupportedJwtException e) {
-//            log.error("UNSUPPORTED_JWT_TOKEN.");
-//        } catch (IllegalArgumentException e) {
-//            log.error("JWT_CLAIMS_STRING_IS_EMPTY.");
-//        }
-//        return false;
-//    }
-
     public void validateToken(String authToken) {
         SecretKey key = Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
         try {
