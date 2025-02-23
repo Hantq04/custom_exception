@@ -7,4 +7,6 @@ public interface AuthService {
     UserDTO registerUser(UserDTO userDTO);
 
     JwtResponse loginUser(UserDTO userDTO);
+
+    JwtResponse refreshToken(String refreshToken);
 }

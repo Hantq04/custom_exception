@@ -2,6 +2,7 @@ package com.example.exceptiondemo.controller;
 
 import com.example.exceptiondemo.dto.JwtResponse;
 import com.example.exceptiondemo.dto.UserDTO;
+import com.example.exceptiondemo.exception.AppException;
 import com.example.exceptiondemo.groupValidate.DeleteUser;
 import com.example.exceptiondemo.groupValidate.InsertUser;
 import com.example.exceptiondemo.groupValidate.LoginUser;
@@ -56,5 +57,17 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(
                 new ResponseObject(HttpStatus.OK, "", userService.getUserList())
         );
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ResponseObject> refreshToken(@Valid @RequestBody String refreshToken) {
+        try {
+            JwtResponse jwtResponse = authService.refreshToken(refreshToken);
+            return ResponseEntity.status(HttpStatus.OK).body(
+                    new ResponseObject(HttpStatus.OK, "Token refreshed successfully", jwtResponse));
+        } catch (AppException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ResponseObject(HttpStatus.UNAUTHORIZED, e.getMessage(), ""));
+        }
     }
 }

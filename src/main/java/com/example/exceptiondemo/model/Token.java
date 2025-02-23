@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.Date;
+
 @Entity
 @Getter
 @Setter
@@ -23,6 +25,8 @@ public class Token {
     @Enumerated(EnumType.STRING)
     TokenType tokenType;
 
+    Date expireToken;
+
     boolean expired;
 
     boolean revoked;
@@ -30,4 +34,8 @@ public class Token {
     @ManyToOne
     @JoinColumn(name = "user_id")
     User user;
+
+    String refreshToken;
+
+    Date refreshExpirationDate;
 }

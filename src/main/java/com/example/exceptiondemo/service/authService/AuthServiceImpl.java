@@ -18,6 +18,7 @@ import com.example.exceptiondemo.service.userService.UserServiceImpl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -26,9 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -104,16 +103,23 @@ public class AuthServiceImpl implements AuthService{
         String jwt = jwtTokenProvider.generateToken(customUserDetails);
         revokeAllUserToken(request);
         saveUserToken(request, jwt);
+        Token token = tokenRepo.findByToken(jwt)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
+
         List<String> listRoles = customUserDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
-        return new JwtResponse(jwt, customUserDetails.getUsername(), listRoles);
+        return new JwtResponse(jwt, token.getRefreshToken(), customUserDetails.getUsername(), listRoles);
     }
+
 
     private void saveUserToken(UserDTO userDTO, String jwtToken) {
         User user = userService.findByUserName(userDTO.getUserName());
         if (user == null) {
             throw new AppException(ErrorCode.NOT_FOUND);
         }
+        Date now = new Date();
+        Date dateRefreshExpire = new Date(now.getTime() + jwtTokenProvider.getRefreshExpiration());
+        Date dateExpire = new Date(now.getTime() + jwtTokenProvider.getJWT_EXPIRATION());
         var token = Token.builder()
                 .user(user)
                 .token(jwtToken)
@@ -121,6 +127,9 @@ public class AuthServiceImpl implements AuthService{
                 .revoked(false)
                 .expired(false)
                 .build();
+        token.setExpireToken(dateExpire);
+        token.setRefreshToken(UUID.randomUUID().toString());
+        token.setRefreshExpirationDate(dateRefreshExpire);
         tokenRepo.save(token);
     }
 
@@ -136,5 +145,35 @@ public class AuthServiceImpl implements AuthService{
             token.setRevoked(true);
         });
         tokenRepo.saveAll(validUserTokens);
+    }
+
+    public JwtResponse refreshToken(String refreshToken) {
+        Token token = tokenRepo.findByToken(refreshToken)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
+        if (token.isExpired() || token.isRevoked()) {
+            throw new AppException(ErrorCode.EXPIRED_JWT_TOKEN);
+        }
+        User user = token.getUser();
+        CustomUserDetails customUserDetails = CustomUserDetails.mapUserToUserDetail(user);
+
+        // Tạo access token mới
+        String newAccessToken = jwtTokenProvider.generateToken(customUserDetails);
+
+        // Cập nhật refresh token nếu đã hết hạn
+        String newRefreshToken = token.getRefreshToken();
+        Date now = new Date();
+        if (token.getRefreshExpirationDate().before(now)) {
+            newRefreshToken = UUID.randomUUID().toString();
+            Date newRefreshExpiration = new Date(now.getTime() + jwtTokenProvider.getRefreshExpiration());
+            token.setRefreshToken(newRefreshToken);
+            token.setRefreshExpirationDate(newRefreshExpiration);
+        }
+        token.setToken(newAccessToken);
+        tokenRepo.save(token);
+        List<String> listRoles = customUserDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
+
+        // Trả về cả refreshToken
+        return new JwtResponse(newAccessToken, newRefreshToken, user.getUserName(), listRoles);
     }
 }

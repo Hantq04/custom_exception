@@ -22,6 +22,16 @@ public class JwtTokenProvider {
     String JWT_SECRET;
     @Value("${application.jwt.expiration}")
     Integer JWT_EXPIRATION;
+    @Value("${application.jwt.refreshTokenExpiration}")
+    Integer REFRESH_EXPIRATION;
+
+    public Integer getRefreshExpiration() {
+        return REFRESH_EXPIRATION;
+    }
+
+    public Integer getJWT_EXPIRATION() {
+        return JWT_EXPIRATION;
+    }
 
     public String generateToken(CustomUserDetails customUserDetails) {
         Date now = new Date();
