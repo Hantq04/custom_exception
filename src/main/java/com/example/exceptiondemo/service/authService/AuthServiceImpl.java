@@ -18,7 +18,6 @@ import com.example.exceptiondemo.service.userService.UserServiceImpl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -148,17 +147,15 @@ public class AuthServiceImpl implements AuthService{
     }
 
     public JwtResponse refreshToken(String refreshToken) {
-        Token token = tokenRepo.findByToken(refreshToken)
+        Token token = tokenRepo.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
         if (token.isExpired() || token.isRevoked()) {
             throw new AppException(ErrorCode.EXPIRED_JWT_TOKEN);
         }
         User user = token.getUser();
         CustomUserDetails customUserDetails = CustomUserDetails.mapUserToUserDetail(user);
-
         // Tạo access token mới
         String newAccessToken = jwtTokenProvider.generateToken(customUserDetails);
-
         // Cập nhật refresh token nếu đã hết hạn
         String newRefreshToken = token.getRefreshToken();
         Date now = new Date();
@@ -172,8 +169,6 @@ public class AuthServiceImpl implements AuthService{
         tokenRepo.save(token);
         List<String> listRoles = customUserDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
-
-        // Trả về cả refreshToken
         return new JwtResponse(newAccessToken, newRefreshToken, user.getUserName(), listRoles);
     }
 }

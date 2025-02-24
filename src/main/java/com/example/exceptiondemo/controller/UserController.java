@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 @RestController
@@ -60,11 +61,12 @@ public class UserController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<ResponseObject> refreshToken(@Valid @RequestBody String refreshToken) {
+    public ResponseEntity<ResponseObject> refreshToken(@Valid @RequestBody Map<String, String> request) {
         try {
+            String refreshToken = request.get("refreshToken");
             JwtResponse jwtResponse = authService.refreshToken(refreshToken);
-            return ResponseEntity.status(HttpStatus.OK).body(
-                    new ResponseObject(HttpStatus.OK, "Token refreshed successfully", jwtResponse));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(new ResponseObject(HttpStatus.OK, "Token refreshed successfully", jwtResponse));
         } catch (AppException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ResponseObject(HttpStatus.UNAUTHORIZED, e.getMessage(), ""));
