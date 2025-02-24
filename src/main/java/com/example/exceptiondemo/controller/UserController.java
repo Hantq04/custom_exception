@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,6 +48,7 @@ public class UserController {
     }
 
     @DeleteMapping("/delete")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> deleteUser(@Validated(DeleteUser.class) @RequestParam List<Integer> listUser) {
         try {
             userService.deleteUser(listUser);
@@ -61,6 +63,7 @@ public class UserController {
     }
 
     @GetMapping("/get-user-list")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> getUserList() {
         return ResponseEntity.status(HttpStatus.OK).body(
                 new ResponseObject(HttpStatus.OK, "", userService.getUserList())
