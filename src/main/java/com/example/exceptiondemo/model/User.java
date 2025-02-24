@@ -32,6 +32,7 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     Set<Role> listRoles;
 
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
     List<Token> tokens;
+
 }

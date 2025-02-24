@@ -44,72 +44,74 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public UserDTO registerUser(UserDTO request) {
         if (userService.existsByUserName(request.getUserName())) {
-            throw  new AppException(ErrorCode.USER_EXISTED);
+            throw new AppException(ErrorCode.USER_EXISTED);
         }
         User user = userMapper.toUser(request);
         user.setUserName(user.getUserName());
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        Set<String> strRoles = request.getListRoles();
-        Set<Role> listRoles = new HashSet<>();
-        if (strRoles == null) {
-            Role userRole = roleService.findByRoleName(ERole.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("ROLE_NOT_FOUND."));
-            listRoles.add(userRole);
-        } else {
-            strRoles.forEach(role -> {
-                switch (role) {
-                    case "admin":
-                        Role adminRole = roleService.findByRoleName(ERole.ROLE_ADMIN)
-                                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-                        listRoles.add(adminRole);
-                        break;
-                    case "user":
-                        Role userRole = roleService.findByRoleName(ERole.ROLE_USER)
-                                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
-                        listRoles.add(userRole);
-                        break;
-                    default:
-                        throw new AppException(ErrorCode.INVALID_ROLE);
-                }
-            });
-        }
+        Set<Role> listRoles = getRolesFromRequest(request.getListRoles());
         user.setListRoles(listRoles);
-        User savedUser = userService.insertUser(user);
 
+        User savedUser = userService.insertUser(user);
         User persistedUser = userService.findByUserName(savedUser.getUserName());
         if (persistedUser == null) {
             throw new AppException(ErrorCode.NOT_FOUND);
         }
+        // Xác thực và tạo JWT
+        String jwt = authenticateAndGenerateToken(request.getUserName(), request.getPassword());
+        saveUserToken(userMapper.toUserDTO(persistedUser), jwt);
+        return userMapper.toUserDTO(savedUser);
+    }
+
+    private Set<Role> getRolesFromRequest(Set<String> strRoles) {
+        Set<Role> listRoles = new HashSet<>();
+        if (strRoles == null) {
+            listRoles.add(roleService.findByRoleName(ERole.ROLE_USER)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND)));
+        } else {
+            strRoles.forEach(role -> {
+                Role userRole = switch (role) {
+                    case "admin" -> roleService.findByRoleName(ERole.ROLE_ADMIN)
+                            .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+                    case "user" -> roleService.findByRoleName(ERole.ROLE_USER)
+                            .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+                    default -> throw new AppException(ErrorCode.INVALID_ROLE);
+                };
+                listRoles.add(userRole);
+            });
+        }
+        return listRoles;
+    }
+
+    private String authenticateAndGenerateToken(String username, String password) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUserName(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(username, password)
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
         CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
-        String jwt = jwtTokenProvider.generateToken(customUserDetails);
-        saveUserToken(userMapper.toUserDTO(persistedUser), jwt);
-
-        return userMapper.toUserDTO(savedUser);
+        return jwtTokenProvider.generateToken(customUserDetails);
     }
 
     @Override
     public JwtResponse loginUser(UserDTO request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUserName(), request.getPassword())
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        CustomUserDetails customUserDetails = (CustomUserDetails) authentication.getPrincipal();
-        String jwt = jwtTokenProvider.generateToken(customUserDetails);
+        String jwt = authenticateAndGenerateToken(request.getUserName(), request.getPassword());
         revokeAllUserToken(request);
         saveUserToken(request, jwt);
-        Token token = tokenRepo.findByToken(jwt)
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
 
-        List<String> listRoles = customUserDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
-        return new JwtResponse(jwt, token.getRefreshToken(), customUserDetails.getUsername(), listRoles);
+        User user = userService.findByUserName(request.getUserName());
+        List<String> listRoles = user.getListRoles().stream()
+                .map(role -> role.getRoleName().name())
+                .collect(Collectors.toList());
+        return new JwtResponse(jwt, getRefreshTokenFromUser(user), user.getUserName(), listRoles);
     }
 
+    private String getRefreshTokenFromUser(User user) {
+        return tokenRepo.findAllValidTokensByUser(user.getUserId()).stream()
+                .findFirst()
+                .map(Token::getRefreshToken)
+                .orElse(UUID.randomUUID().toString());
+    }
 
     private void saveUserToken(UserDTO userDTO, String jwtToken) {
         User user = userService.findByUserName(userDTO.getUserName());

@@ -11,6 +11,7 @@ import com.example.exceptiondemo.service.userService.UserService;
 import com.example.exceptiondemo.util.ResponseObject;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -47,10 +48,16 @@ public class UserController {
 
     @DeleteMapping("/delete")
     public ResponseEntity<ResponseObject> deleteUser(@Validated(DeleteUser.class) @RequestParam List<Integer> listUser) {
+        try {
             userService.deleteUser(listUser);
             return ResponseEntity.status(HttpStatus.OK).body(
                     new ResponseObject(HttpStatus.OK, "Delete user successfully.", "")
             );
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    new ResponseObject(HttpStatus.BAD_REQUEST, "Cannot delete user due to existing relationships.", "")
+            );
+        }
     }
 
     @GetMapping("/get-user-list")

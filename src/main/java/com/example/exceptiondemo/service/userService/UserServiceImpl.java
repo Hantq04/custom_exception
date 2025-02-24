@@ -8,6 +8,7 @@ import com.example.exceptiondemo.model.User;
 import com.example.exceptiondemo.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,13 +27,15 @@ public class UserServiceImpl implements UserService {
         return userRepo.save(user);
     }
 
-    @Override
+    @Transactional
     public void deleteUser(List<Integer> listUser) {
-        listUser.forEach(user -> {
-            User users = userRepo.findById(user)
+        for (Integer userId : listUser) {
+            User user = userRepo.findById(userId)
                     .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
-            userRepo.delete(users);
-        });
+            user.getListRoles().clear();
+            userRepo.save(user);
+            userRepo.delete(user);
+        }
     }
 
     @Override
